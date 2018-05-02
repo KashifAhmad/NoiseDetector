@@ -14,16 +14,21 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import com.jaredrummler.materialspinner.MaterialSpinner;
 import com.taishi.library.Indicator;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.Calendar;
 import java.util.Date;
+
+import static java.lang.Math.log10;
 
 public class MainActivity extends AppCompatActivity {
     TextView mStatusView, tvNoiseDetector, tvLocation, tvTimeStamp;
@@ -31,7 +36,10 @@ public class MainActivity extends AppCompatActivity {
     Thread runner;
     private static double mEMA = 0.0;
     static final private double EMA_FILTER = 0.6;
-    String strNoise, strLatLon, strTime, strSpinnerText;
+    String strNoise;
+    String strLatLon;
+    String strTime;
+    String strSpinnerText;
     File rootFile, CsvFile;
     FileWriter writer;
     Boolean aBoolean;
@@ -45,14 +53,13 @@ public class MainActivity extends AppCompatActivity {
     int timer_int = 500;
     int spinner_index;
 
+    boolean aBooleanOnPause= false;
     MaterialSpinner spinner;
 
     //Delimiter used in CSV file
     private static final String COMMA_DELIMITER = ",";
     private static final String NEW_LINE_SEPARATOR = "\n";
 
-    //CSV file header
-    private static final String FILE_HEADER = "id,firstName,lastName,gender,age";
 
     final Runnable updater = new Runnable() {
 
@@ -70,32 +77,35 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+
         mStatusView = findViewById(R.id.status);
         tvNoiseDetector = findViewById(R.id.tv_noise_detector);
         tvLocation = findViewById(R.id.tv_location);
         tvTimeStamp = findViewById(R.id.tv_time_stamp);
         indicator = findViewById(R.id.indicator);
 
+
         spinner = findViewById(R.id.spinner);
-        spinner.setItems("1 Second", "5 Seconds", "15 Seconds", "30 Seconds", "1 Minute", "30 Minutes");
+        spinner.setItems("1 Second", "5 Second", "1 Minute", "5 Minute", "10 Minute", "20 Minute", "30 Minute");
         spinner.setOnItemSelectedListener(new MaterialSpinner.OnItemSelectedListener<String>() {
 
             @Override
             public void onItemSelected(MaterialSpinner view, int position, long id, String item) {
-             //   Toast.makeText(MainActivity.this, String.valueOf(position), Toast.LENGTH_SHORT).show();
 
-
-                if (item.equals("1 Second")) {
+                if (item == "1 Second") {
                     timer_int = 1000;
-                } else if (item.equals("5 Seconds")) {
+                } else if (item == "5 Second") {
                     timer_int = 5000;
-                } else if (item.equals("15 Seconds") ) {
-                    timer_int = 15000;
-                } else if (item.equals("30 Seconds")) {
-                    timer_int = 30000;
-                } else if (item.equals("1 Minute")) {
+                } else if (item == "1 Minute") {
                     timer_int = 60000;
-                } else if (item.equals("30 Minutes")) {
+                } else if (item == "5 Minute") {
+                    timer_int = 300000;
+                } else if (item == "10 Minute") {
+                    timer_int = 600000;
+                } else if (item == "20 Minute") {
+                    timer_int = (int) 1.2e+6;
+                } else if (item == "30 Minute") {
                     timer_int = (int) 1.8e+6;
                 }
                 Utilities.putValueInEditor(MainActivity.this).putInt("timer", timer_int).commit();
@@ -142,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void onResume() {
         super.onResume();
-
+///set Audio run timer permission
         if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO
@@ -153,10 +163,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
+
+
     public void onPause() {
         super.onPause();
         stopRecorder();
+        timer_int = (int) 1.728e+8;
     }
+
+
+
     public void startRecorder() {
         if (mRecorder == null) {
             mRecorder = new MediaRecorder();
@@ -173,21 +190,29 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.e("[Monkey]", "SecurityException: " + android.util.Log.getStackTraceString(e));
             }
             try {
+
                 mRecorder.start();
+
+
+
             } catch (java.lang.SecurityException e) {
                 android.util.Log.e("[Monkey]", "SecurityException: " + android.util.Log.getStackTraceString(e));
             }
-
-            //mEMA = 0.0;
         }
+
+
 
     }
 
     public void stopRecorder() {
         if (mRecorder != null) {
+
+
             mRecorder.stop();
-            mRecorder.release();
-            mRecorder = null;
+
+
+
+
         }
     }
 
@@ -205,16 +230,26 @@ public class MainActivity extends AppCompatActivity {
 
     public void updateTv() {
 
-        strNoise = Double.toString((getAmplitudeEMA())) + " dB";
 
+        double dNoise = soundDb(0.1);
+        DecimalFormat decimalFormat = new DecimalFormat("####.##");
+        String strNoiseDF = decimalFormat.format(dNoise);
+        strNoise = strNoiseDF + " dBA";
         mStatusView.setText(strNoise);
 
+
+        //Toast.makeText(this, strNoise, Toast.LENGTH_SHORT).show();
+
+
+        ////this code use for  indicator
         indicatorstepnum = mStatusView.getText().length();
+        int i = 0;
+        i = indicatorstepnum / 10;
         indicator.setBarNum(50);
         indicator.setStepNum((int) getAmplitude());
         indicator.setDuration(100);
 
-
+///get Location
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
             Toast.makeText(this, "Please turn on your location", Toast.LENGTH_SHORT).show();
@@ -226,12 +261,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-
     }
 
+
     public double soundDb(double ampl) {
-        Log.d("zma sound", String.valueOf(20 * Math.log10(getAmplitudeEMA() / ampl)));
-        return 20 * Math.log10(getAmplitudeEMA() / ampl);
+        return 20 * log10(getAmplitudeEMA() / ampl);
     }
 
     public double getAmplitude() {
@@ -243,7 +277,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public double getAmplitudeEMA() {
-        soundDb(1.0);
         double amp = getAmplitude();
         mEMA = EMA_FILTER * amp + (1.0 - EMA_FILTER) * mEMA;
         return mEMA;
